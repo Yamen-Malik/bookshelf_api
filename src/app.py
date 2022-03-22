@@ -3,21 +3,10 @@ import datetime
 import re
 from auth import get_token_from_code, requires_auth, AuthError, get_user_id, get_login_url
 from models import *
-from constants import BOOKS_PER_PAGE
 
 app = Flask(__name__)
 setup_db(app)
 
-
-def paginate(page: int, books: list):
-    """ Formats and paginate the given list according to the given page number
-      page: the page number
-      questions : list to paginate
-      Retutns: list of dictionaries
-    """
-    start_index = (page - 1) * BOOKS_PER_PAGE
-    books = [b.short_format() for b in books]
-    return books[start_index: start_index + BOOKS_PER_PAGE]
 
 # region BOOKS
 
@@ -35,19 +24,17 @@ def get_books():
 
     books = books_query.all()
 
-    page = request.args.get("page", 1, type=int)
     return jsonify({
         "success": True,
-        "books": paginate(page, books),
+        "books": paginate(books),
         "total": len(books)
     })
+
 
 @app.route("/books", methods=["POST"])
 @requires_auth("post:books")
 def create_book():
     data = request.json
-    if not data:
-        abort(400)
     try:
         title = data["title"].strip()
         description = data["description"].strip()
@@ -87,7 +74,7 @@ def create_book():
 
 @app.route("/books/<id>")
 def get_book_details(id):
-    return jsonify(Book.get(id).long_format())
+    return jsonify(Book.get(id).detailed_format())
 
 
 @app.route("/books/<id>", methods=["DELETE"])
@@ -110,6 +97,7 @@ def delete_book(id):
 
 # region AUTHORS
 
+
 @app.route("/authors")
 def get_authors():
     search_term = request.args.get("search_term", None, type=str)
@@ -119,10 +107,9 @@ def get_authors():
             Author.name.ilike(f"%{search_term}%"))
 
     authors = authors_query.all()
-    page = request.args.get("page", 1, type=int)
     return jsonify({
         "success": True,
-        "authors": paginate(page, authors),
+        "authors": paginate(authors),
         "total": len(authors)
     })
 
@@ -131,8 +118,6 @@ def get_authors():
 @requires_auth("post:authors")
 def create_author():
     data = request.json
-    if not data:
-        abort(400)
     try:
         name = data["name"].strip()
         description = data["description"].strip()
@@ -165,7 +150,7 @@ def create_author():
 
 @app.route("/authors/<id>")
 def get_author_details(id):
-    return jsonify(Author.get(id).long_format())
+    return jsonify(Author.get(id).detailed_format())
 
 
 @app.route("/authors/<id>", methods=["DELETE"])
@@ -186,20 +171,29 @@ def delete_author(id):
 
 # endregion
 
-# region USER
+# region USER ACCOUNT
+
 
 @app.route("/login")
 def login():
     return redirect(get_login_url())
 
+
 @app.route("/callback")
 def callback():
     # handles response from auth0 authorize endpoint
-    
+
     # get authorization code
     code = request.args.get("code", "", type=str)
-    
     token = get_token_from_code(code)
+    user_id = get_user_id(token)
+
+    # add the default shelves if the user doesn't have shelves
+    if Shelf.query.filter_by(user_id=user_id).count() == 0:
+        Shelf(user_id, "want to read").insert()
+        Shelf(user_id, "currently reading").insert()
+        Shelf(user_id, "read").insert()
+
     return jsonify({
         "success": True,
         "token": token
@@ -216,9 +210,109 @@ def user():
 
 # endregion
 
+# region SHELVES
 
-# region Error Handling
 
+@app.route("/shelves")
+@requires_auth()
+def get_shelves():
+    user_id = get_user_id()
+    shelves = Shelf.query.filter_by(user_id=user_id).all()
+
+    return jsonify({
+        "success": True,
+        "shelves": paginate(shelves),
+        "total": len(shelves)
+    })
+
+
+@app.route("/shelves", methods=["POST"])
+@requires_auth()
+def create_shelf():
+    try:
+        name = request.json["name"].strip()
+    except:
+        abort(400)
+    if not name:
+        # if the name is empty then raise unprocessable entity error
+        abort(422)
+
+    user_id = get_user_id()
+    if Shelf.query.filter_by(user_id=user_id).filter(Shelf.name.ilike(name)).first():
+        # if the shlef already exists raise conflict error
+        abort(409)
+
+    shelf = Shelf(user_id, name)
+    shelf.insert()
+    return jsonify({
+        "success": True,
+        "created": shelf.user_based_id
+    }), 201
+
+
+@app.route("/shelves/<id>")
+@requires_auth()
+def get_shlef_details(id):
+    return jsonify(Shelf.get(get_user_id(), id).detailed_format())
+
+
+@app.route("/shelves/<id>", methods=["DELETE"])
+@requires_auth()
+def delete_shlef(id):
+    shelf = Shelf.get(get_user_id(), id)
+
+    # delete stored books in the shelf
+    for book in Stored_Book.query.filter_by(shelf_id=shelf.id).all():
+        book.delete()
+
+    # then delete the shelf
+    shelf.delete()
+    return jsonify({
+        "success": True,
+        "deleted": id
+    })
+
+# ---------------------------
+#       Storing Books
+# ---------------------------
+
+
+@app.route("/shelves/<shelf_id>", methods=["POST"])
+@requires_auth()
+def add_book_to_shelf(shelf_id):
+    try:
+        book_id = int(request.json.get("book_id"))
+    except AttributeError:
+        abort(400)
+    except ValueError:
+        abort(422)
+
+    user_id = get_user_id()
+    shelf = Shelf.get(user_id, shelf_id)
+    if Stored_Book.query.filter_by(user_id=user_id, book_id=book_id).first():
+        # if the book is already stored in any of the user's shleves raise conflict error
+        abort(409)
+
+    Stored_Book(user_id, shelf.id, book_id).insert()
+
+    return jsonify({
+        "success": True
+    })
+
+
+@app.route("/shelves/<shelf_id>/<book_id>", methods=["DELETE"])
+@requires_auth()
+def remove_book_from_shelf(shelf_id, book_id):
+    Stored_Book.get(get_user_id(), book_id).delete()
+    return jsonify({
+        "success": True
+    })
+
+
+# endregion
+
+
+# region ERROR HANDLERS
 
 @app.errorhandler(400)
 def bad_request(error):
@@ -272,6 +366,7 @@ def internal_server_error(error):
         "error": 500,
         "message": "internal server error"
     }), 500
+
 
 @app.errorhandler(AuthError)
 def auth_error(error):

@@ -1,8 +1,9 @@
 from os import getenv
-from flask import abort
-from sqlalchemy import Column, String, Integer, Date, ForeignKey
+from flask import abort, request
+from sqlalchemy import Column, String, Integer, Date, ForeignKey, Sequence
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy_utils import database_exists, create_database
+from constants import ITEMS_PER_PAGE
 
 # using string.capwords because str.title() misbehaves with apostrophes
 from string import capwords
@@ -29,8 +30,49 @@ def setup_db(app, database_path=database_path):
     db.create_all()
 
 
+def paginate(l: list):
+    """ Formats and paginate the given list according to page number in the request arguments
+      l : list to paginate
+      Retutns: list of dictionaries
+    """
+    page = request.args.get("page", 1, type=int)
+    start_index = (page - 1) * ITEMS_PER_PAGE
+    l = [e.format() for e in l]
+    return l[start_index: start_index + ITEMS_PER_PAGE]
+
+
+class DatabaseObject():
+    def insert(self):
+        db.session.add(self)
+        db.session.commit()
+
+    def update(self):
+        db.session.commit()
+
+    def delete(self):
+        db.session.delete(self)
+        db.session.commit()
+
+    @classmethod
+    def get(cls, id: int):
+        """ Returns an instance with the given id
+            id : the id of the desired instance
+        """
+        try:
+            id = int(id)
+        except ValueError:
+            # if the id isn't an integer raise a not found error
+            abort(404)
+
+        instance = cls.query.filter_by(id=id).first()
+        if not instance:
+            abort(404)
+        return instance
+
 # region Tabels
-class Book(db.Model):
+
+
+class Book(db.Model, DatabaseObject):
     __tablename__ = "books"
 
     id = Column(Integer, primary_key=True)
@@ -47,21 +89,10 @@ class Book(db.Model):
         self.pages = pages
         self.year = year
 
-    def insert(self):
-        db.session.add(self)
-        db.session.commit()
-
-    def update(self):
-        db.session.commit()
-
-    def delete(self):
-        db.session.delete(self)
-        db.session.commit()
-
     def get_genres(self):
         return [r.genre for r in BookGenre.query.filter_by(book_id=self.id).all()]
 
-    def short_format(self):
+    def format(self):
         return {
             "id": self.id,
             "title": self.title,
@@ -72,7 +103,7 @@ class Book(db.Model):
             }
         }
 
-    def long_format(self):
+    def detailed_format(self):
         return {
             "id": self.id,
             "title": self.title,
@@ -86,17 +117,8 @@ class Book(db.Model):
             }
         }
 
-    def get(id):
-        if type(id) != int and not id.isnumeric():
-            abort(400)
-        id = int(id)
-        book = Book.query.filter_by(id=id).first()
-        if not book:
-            abort(404)
-        return book
 
-
-class Author(db.Model):
+class Author(db.Model, DatabaseObject):
     __tablename__ = "authors"
 
     id = Column(Integer, primary_key=True)
@@ -109,54 +131,32 @@ class Author(db.Model):
         self.description = description
         self.birthday = birthday
 
-    def insert(self):
-        db.session.add(self)
-        db.session.commit()
-
-    def update(self):
-        db.session.commit()
-
-    def delete(self):
-        db.session.delete(self)
-        db.session.commit()
-
-    def short_format(self):
+    def format(self):
         return {
             "id": self.id,
             "name": self.name
         }
 
-    def long_format(self):
-        # genres = [r.genre for r in AuthorGenre.query.filter_by(author_id=self.id).all()]
-        books = []
+    def detailed_format(self):
+        books = Book.query.filter_by(author_id=self.id).all()
+        formatted_books = paginate(books)
         genres = set()
-        for book in Book.query.filter_by(author_id=self.id).all():
-            format = book.short_format()
+        for format in formatted_books:
             del format["author"]
-            del format["author_id"]
-            books.append(format)
             genres.update(format["genres"])
 
         return {
             "id": self.id,
             "name": self.name,
             "description": self.description,
-            "books": books,
+            "books": formatted_books,
+            "total_books": len(books),
             "genres": list(genres),
             "birthday": str(self.birthday)
         }
 
-    def get(id):
-        if type(id) != int and not id.isnumeric():
-            abort(400)
-        id = int(id)
-        author = Author.query.filter_by(id=id).first()
-        if not author:
-            abort(404)
-        return author
 
-
-class BookGenre(db.Model):
+class BookGenre(db.Model, DatabaseObject):
     __tablename__ = "book_genres"
 
     book_id = Column(Integer, ForeignKey("books.id"), primary_key=True)
@@ -166,21 +166,101 @@ class BookGenre(db.Model):
         self.book_id = book_id
         self.genre = capwords(genre)
 
-    def insert(self):
-        db.session.add(self)
-        db.session.commit()
-
-    def update(self):
-        db.session.commit()
-
-    def delete(self):
-        db.session.delete(self)
-        db.session.commit()
-
     def format(self):
         return {
             "book_id": self.book_id,
             "type": self.genre
         }
+
+
+class Shelf(db.Model, DatabaseObject):
+    __tablename__ = "shelves"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(String, nullable=False)
+    user_based_id = Column(Integer, nullable=False)
+    name = Column(String, nullable=False)
+
+    def __init__(self, user_id, name):
+        self.user_id = user_id
+        self.name = name
+        self.user_based_id = Shelf.query.filter_by(user_id=user_id).count()+1
+
+    def format(self):
+        total_books = Stored_Book.query.filter_by(shelf_id=self.id).count()
+        return {
+            "id": self.user_based_id,
+            "user_id": self.user_id,
+            "name": self.name,
+            "total_books": total_books
+        }
+
+    def detailed_format(self):
+        books = []
+        for id in db.session.query(Stored_Book.book_id).filter_by(shelf_id=self.id).all():
+            books.append(Book.get(id.book_id))
+
+        return {
+            "id": self.user_based_id,
+            "user_id": self.user_id,
+            "name": self.name,
+            "books": paginate(books),
+            "total_books": len(books)
+        }
+
+    # overwrite DatabaseObject.get to use the user_based_id instead of id
+    def get(user_id: str, id: int):
+        """ Returns an instance with the given ids
+            user_id: the user id of the shelf owner
+            id : the id of the desired shelf
+        """
+        try:
+            id = int(id)
+        except ValueError:
+            # if the id isn't an integer raise a not found error
+            abort(404)
+
+        instance = Shelf.query.filter_by(
+            user_id=user_id, user_based_id=id).first()
+        if not instance:
+            abort(404)
+        return instance
+
+
+class Stored_Book(db.Model, DatabaseObject):
+    __tablename__ = "stored_books"
+
+    user_id = Column(String, primary_key=True)
+    shelf_id = Column(Integer, ForeignKey("shelves.id"))
+    book_id = Column(Integer, ForeignKey("books.id"), primary_key=True)
+
+    def __init__(self, user_id, shelf_id, book_id):
+        self.user_id = user_id
+        self.shelf_id = shelf_id
+        self.book_id = book_id
+
+    def format(self):
+        return {
+            "book": self.book.format(),
+            "shelf": self.shelf_id
+        }
+
+    # overwrite DatabaseObject.get to use the user_id, shelf_id and book_id to get the instance
+    def get(user_id: str, book_id: int):
+        """ Returns an instance with the given ids
+            user_id: the user id of the shelves owner
+            book_id : the book id
+        """
+        try:
+            book_id = int(book_id)
+        except ValueError:
+            # if the id isn't an integer raise a not found error
+            abort(404)
+
+        instance = Stored_Book.query.filter_by(
+            user_id=user_id, book_id=book_id).first()
+        if not instance:
+            abort(404)
+        return instance
 
 # endregion

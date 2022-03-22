@@ -7,10 +7,19 @@ from constants import *
 user_id = None
 
 
-def get_user_id():
-    return user_id
+def get_user_id(token=None):
+    if user_id:
+        return user_id
+    elif token:
+        id = jwt.get_unverified_claims(token)["sub"]
+        return id[id.index('|')+1:]
+    else:
+        return None
 
-## AuthError Exception
+
+# AuthError Exception
+
+
 class AuthError(Exception):
     """
     AuthError Exception
@@ -21,6 +30,7 @@ class AuthError(Exception):
         self.error = error
         self.status_code = status_code
 
+
 def get_login_url():
     """
         Returns the auh0 login page url
@@ -30,7 +40,8 @@ def get_login_url():
             &client_id={CLIENT_ID}
             &redirect_uri={url_for(CALLBACK_ENDPOINT, _external=True, _scheme='http')}
             &scope=openid
-            &audience={API_AUDIENCE}""".replace("\n","").replace(" ", "")
+            &audience={API_AUDIENCE}""".replace("\n", "").replace(" ", "")
+
 
 def get_token_from_code(code):
     data = {"grant_type": "authorization_code",
@@ -38,20 +49,22 @@ def get_token_from_code(code):
             "client_secret": CLIENT_SECRET,
             "code": code,
             "redirect_uri": url_for(CALLBACK_ENDPOINT, _external=True, _scheme='http')}
-    
+
     headers = {"content-type": "application/x-www-form-urlencoded"}
-    
-    resp = requests.post(f"https://{AUTH0_DOMAIN}/oauth/token", data=data, headers=headers, timeout=3)
+
+    resp = requests.post(f"https://{AUTH0_DOMAIN}/oauth/token",
+                         data=data, headers=headers, timeout=REQUEST_TIMEOUT)
     if resp.status_code == 403:
         raise AuthError({
             "code": "invalid_grant",
             "description": "Invalid authorization code"}, resp.status_code)
-    
-    token = resp.json().get("access_token") 
+
+    token = resp.json().get("access_token")
     resp.close()
     return token
 
-## Auth Header
+# Auth Header
+
 
 def get_token_auth_header():
     """
@@ -80,8 +93,10 @@ def get_token_auth_header():
     # If all checks passed return token
     return auth[1]
 
+
 def verify_decode_jwt(token):
-    jsonurl = requests.get(f"https://{AUTH0_DOMAIN}/.well-known/jwks.json", timeout=3)
+    jsonurl = requests.get(
+        f"https://{AUTH0_DOMAIN}/.well-known/jwks.json", timeout=REQUEST_TIMEOUT)
     jwks = jsonurl.json()
     try:
         unverified_header = jwt.get_unverified_header(token)
@@ -139,25 +154,28 @@ def verify_decode_jwt(token):
         'description': 'Unable to find the appropriate key.'
     }, 400)
 
+
 def check_permissions(permission, payload):
     if permission not in payload.get("permissions", ""):
         raise AuthError({
             "code": "forbidden",
             "description": "Missing required permissions"}, 403)
 
+
 def requires_auth(permission=""):
-  def requires_auth_decorator(f):
-    @wraps(f)
-    def wrapper(*args, **kwargs):
-        token = get_token_auth_header()
-        payload = verify_decode_jwt(token)
-        
-        if permission:
-            check_permissions(permission, payload)
-        
-        global user_id
-        user_id=payload["sub"]
-        return f(*args, **kwargs)
-    
-    return wrapper
-  return requires_auth_decorator
+    def requires_auth_decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            token = get_token_auth_header()
+            payload = verify_decode_jwt(token)
+
+            if permission:
+                check_permissions(permission, payload)
+
+            global user_id
+            user_id = payload["sub"]
+            user_id = user_id[user_id.index('|')+1:]
+            return f(*args, **kwargs)
+
+        return wrapper
+    return requires_auth_decorator
