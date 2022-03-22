@@ -1,13 +1,12 @@
-from flask import Flask, request, abort, jsonify
-from flask_sqlalchemy import SQLAlchemy
+from flask import Flask, request, abort, jsonify, redirect
 import datetime
 import re
+from auth import get_token_from_code, requires_auth, AuthError, get_user_id, get_login_url
 from models import *
+from constants import BOOKS_PER_PAGE
 
 app = Flask(__name__)
 setup_db(app)
-
-BOOKS_PER_PAGE = 10
 
 
 def paginate(page: int, books: list):
@@ -20,10 +19,7 @@ def paginate(page: int, books: list):
     books = [b.short_format() for b in books]
     return books[start_index: start_index + BOOKS_PER_PAGE]
 
-# -----------------------
-#       Books
-# -----------------------
-
+# region BOOKS
 
 @app.route("/books")
 def get_books():
@@ -37,7 +33,7 @@ def get_books():
     if search_term:
         books_query = books_query.filter(Book.title.ilike(f"%{search_term}%"))
 
-    books = books_query.order_by(Book.title).all()
+    books = books_query.all()
 
     page = request.args.get("page", 1, type=int)
     return jsonify({
@@ -46,8 +42,8 @@ def get_books():
         "total": len(books)
     })
 
-
 @app.route("/books", methods=["POST"])
+@requires_auth("post:books")
 def create_book():
     data = request.json
     if not data:
@@ -95,6 +91,7 @@ def get_book_details(id):
 
 
 @app.route("/books/<id>", methods=["DELETE"])
+@requires_auth("delete:books")
 def delete_book(id):
     book = Book.get(id)
 
@@ -109,10 +106,9 @@ def delete_book(id):
         "deleted": id
     })
 
+# endregion
 
-# -----------------------
-#       Authors
-# -----------------------
+# region AUTHORS
 
 @app.route("/authors")
 def get_authors():
@@ -122,7 +118,7 @@ def get_authors():
         authors_query = authors_query.filter(
             Author.name.ilike(f"%{search_term}%"))
 
-    authors = authors_query.order_by(Author.name).all()
+    authors = authors_query.all()
     page = request.args.get("page", 1, type=int)
     return jsonify({
         "success": True,
@@ -132,6 +128,7 @@ def get_authors():
 
 
 @app.route("/authors", methods=["POST"])
+@requires_auth("post:authors")
 def create_author():
     data = request.json
     if not data:
@@ -172,6 +169,7 @@ def get_author_details(id):
 
 
 @app.route("/authors/<id>", methods=["DELETE"])
+@requires_auth("delete:authors")
 def delete_author(id):
     author = Author.get(id)
 
@@ -185,6 +183,39 @@ def delete_author(id):
         "success": True,
         "deleted": id
     })
+
+# endregion
+
+# region USER
+
+@app.route("/login")
+def login():
+    return redirect(get_login_url())
+
+@app.route("/callback")
+def callback():
+    # handles response from auth0 authorize endpoint
+    
+    # get authorization code
+    code = request.args.get("code", "", type=str)
+    
+    token = get_token_from_code(code)
+    return jsonify({
+        "success": True,
+        "token": token
+    })
+
+
+@app.route("/user")
+@requires_auth()
+def user():
+    return jsonify({
+        "success": True,
+        "user_id": get_user_id()
+    })
+
+# endregion
+
 
 # region Error Handling
 
@@ -242,13 +273,13 @@ def internal_server_error(error):
         "message": "internal server error"
     }), 500
 
-# @app.errorhandler(AuthError)
-# def auth_error(error):
-#     return jsonify({
-#         "success": False,
-#         "error": error.status_code,
-#         "message": error.error["description"]
-#     }), error.status_code
+@app.errorhandler(AuthError)
+def auth_error(error):
+    return jsonify({
+        "success": False,
+        "error": error.status_code,
+        "message": error.error["description"]
+    }), error.status_code
 
 # endregion
 

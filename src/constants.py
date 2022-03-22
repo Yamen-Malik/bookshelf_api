@@ -1,0 +1,11 @@
+from os import getenv
+
+BOOKS_PER_PAGE = 10
+
+# Auth
+CLIENT_ID = getenv("BOOKSHELF_API_CLINET_ID")
+CLIENT_SECRET = getenv("BOOKSHELF_API_CLINET_SECRET")
+AUTH0_DOMAIN = getenv("BOOKSHELF_API_DOMAIN")
+ALGORITHMS = ['RS256']
+API_AUDIENCE = "bookshelf_api"
+CALLBACK_ENDPOINT = "callback"
