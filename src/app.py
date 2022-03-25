@@ -237,7 +237,7 @@ def create_app():
     def delete_author(id):
         author = Author.get(id)
 
-        # if the author have books riase conflict error
+        # if the author have books raise conflict error
         if Book.query.filter_by(author_id=author.id).first():
             abort(409)
 
@@ -380,17 +380,19 @@ def create_app():
         except ValueError:
             abort(422)
 
+        # try to get the book if it doesn't exist it will abort 404
+        Book.get(book_id)
         user_id = get_user_id()
         shelf = Shelf.get(user_id, shelf_id)
         if Stored_Book.query.filter_by(user_id=user_id, book_id=book_id).first():
-            # if the book is already stored in any of the user's shleves raise conflict error
+            # if the book is already stored in any of the user's shelves raise conflict error
             abort(409)
 
         Stored_Book(user_id, shelf.id, book_id).insert()
 
         return jsonify({
             "success": True
-        })
+        }), 204
 
     @app.route("/shelves/<shelf_id>/<book_id>", methods=["DELETE"])
     @requires_auth()
@@ -398,7 +400,7 @@ def create_app():
         Stored_Book.get(get_user_id(), book_id).delete()
         return jsonify({
             "success": True
-        })
+        }), 204
 
     # endregion
 
