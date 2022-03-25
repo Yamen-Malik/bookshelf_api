@@ -361,7 +361,6 @@ class TriviaTestCase(unittest.TestCase):
         self.assertEqual(data["success"], True)
         self.assertTrue(data["shelf"]["id"])
         self.assertTrue(data["shelf"]["name"])
-        self.assertTrue(data["shelf"]["user_id"])
         self.assertEqual(type(data["shelf"]["books"]), list)
         self.assertIsNotNone(data["shelf"]["total_books"])
 

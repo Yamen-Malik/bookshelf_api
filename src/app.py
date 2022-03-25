@@ -123,7 +123,7 @@ def create_app():
 
         return jsonify({
             "success": True
-        }), 200
+        }), 204
 
     @app.route("/books/<id>", methods=["DELETE"])
     @requires_auth("delete:books")
@@ -230,7 +230,7 @@ def create_app():
 
         return jsonify({
             "success": True
-        }), 200
+        }), 204
 
     @app.route("/authors/<id>", methods=["DELETE"])
     @requires_auth("delete:authors")
@@ -347,7 +347,7 @@ def create_app():
         shelf.update()
         return jsonify({
             "success": True
-        })
+        }), 204
 
 
     @app.route("/shelves/<id>", methods=["DELETE"])
@@ -467,4 +467,4 @@ def create_app():
 
 if __name__ == "__main__":
     app = create_app()
-    app.run(debug=True)
+    app.run()

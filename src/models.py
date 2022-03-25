@@ -26,7 +26,7 @@ def setup_db(app, database_path=DB_PATH):
 def paginate(l: list):
     """ Formats and paginate the given list according to page number in the request arguments
       l : list to paginate
-      Retutns: list of dictionaries
+      Returns: list of dictionaries
     """
     page = request.args.get("page", 1, type=int)
     start_index = (page - 1) * ITEMS_PER_PAGE
@@ -183,7 +183,6 @@ class Shelf(db.Model, DatabaseObject):
         total_books = Stored_Book.query.filter_by(shelf_id=self.id).count()
         return {
             "id": self.user_based_id,
-            "user_id": self.user_id,
             "name": self.name,
             "total_books": total_books
         }
@@ -195,7 +194,6 @@ class Shelf(db.Model, DatabaseObject):
 
         return {
             "id": self.user_based_id,
-            "user_id": self.user_id,
             "name": self.name,
             "books": paginate(books),
             "total_books": len(books)
