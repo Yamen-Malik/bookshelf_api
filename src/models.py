@@ -1,28 +1,21 @@
-from os import getenv
 from flask import abort, request
 from sqlalchemy import Column, String, Integer, Date, ForeignKey, Sequence
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy_utils import database_exists, create_database
-from constants import ITEMS_PER_PAGE
+from constants import ITEMS_PER_PAGE, DB_PATH
 
 # using string.capwords because str.title() misbehaves with apostrophes
 from string import capwords
 
-database_name = "bookshelf_api"
-database_path = "postgresql://{}:{}@{}/{}".format(
-    getenv("DB_USER"),
-    getenv("DB_PASSWORD"),
-    getenv("DB_HOST"),
-    database_name)
-if not database_exists(database_path):
-    create_database(database_path)
 db = SQLAlchemy()
 
-
-def setup_db(app, database_path=database_path):
+def setup_db(app, database_path=DB_PATH):
     """
         binds a flask application and a SQLAlchemy service
     """
+    if not database_exists(DB_PATH):
+        create_database(DB_PATH)
+
     app.config["SQLALCHEMY_DATABASE_URI"] = database_path
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     db.app = app
