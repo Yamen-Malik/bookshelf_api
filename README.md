@@ -1,4 +1,6 @@
 # Bookshelf API 
+### Working with the API online
+The API is currently hosted at https://y-bookshelf-api.herokuapp.com
 ### Installing Dependencies
 
 1. **Python 3** - Follow instructions to install the latest version of python for your platform in the [python docs](https://docs.python.org/3/using/unix.html#getting-and-installing-the-latest-version-of-python)
