@@ -8,7 +8,11 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..","sr
 from app import create_app
 from models import *
 
-#* REMEBER: load the data from the sql file to the database before running the tests
+# Load variables from .env file
+from dotenv import load_dotenv
+load_dotenv()
+
+#* REMEMBER: load the data from the sql file to the database before running the tests
 # command: psql -U myUsername bookshelf_test < bookshelf_test_data.sql
 class TriviaTestCase(unittest.TestCase):
     """This class represents the trivia test case"""
