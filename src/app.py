@@ -140,7 +140,7 @@ def create_app():
         book.delete()
         return jsonify({
             "success": True,
-            "deleted": id
+            "deleted": int(id)
         })
 
     # endregion
@@ -245,7 +245,7 @@ def create_app():
         author.delete()
         return jsonify({
             "success": True,
-            "deleted": id
+            "deleted": int(id)
         })
 
     # endregion
@@ -363,7 +363,7 @@ def create_app():
         shelf.delete()
         return jsonify({
             "success": True,
-            "deleted": id
+            "deleted": int(id)
         })
 
     # ---------------------------

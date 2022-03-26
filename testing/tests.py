@@ -148,7 +148,7 @@ class TriviaTestCase(unittest.TestCase):
         self.assertEqual(res.status_code, 201)
         self.assertEqual(data["success"], True)
         self.assertTrue(data["created"])
-        self.added_book_id = int(data.get("created"))
+        self.added_book_id = data.get("created")
 
     def test_401_create_new_book(self):
         res = self.client().post("/books", json=self.new_book)
@@ -207,7 +207,7 @@ class TriviaTestCase(unittest.TestCase):
         data = json.loads(res.data)
         self.assertEqual(res.status_code, 200)
         self.assertEqual(data["success"], True)
-        self.assertEqual(int(data["deleted"]), self.book_to_delete_id)
+        self.assertEqual(data["deleted"], self.book_to_delete_id)
 
     def test_403_delete_book(self):
         res = self.client().delete("/books/1", headers=self.librarian_auth_header)

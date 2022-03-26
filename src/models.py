@@ -9,6 +9,7 @@ from string import capwords
 
 db = SQLAlchemy()
 
+
 def setup_db(app, database_path=DB_PATH):
     """
         binds a flask application and a SQLAlchemy service
@@ -177,7 +178,14 @@ class Shelf(db.Model, DatabaseObject):
     def __init__(self, user_id, name):
         self.user_id = user_id
         self.name = name
-        self.user_based_id = Shelf.query.filter_by(user_id=user_id).count()+1
+        last_shelf = Shelf.query.filter_by(user_id=user_id).order_by(
+            Shelf.user_based_id.desc()).first()
+
+        user_based_id = 1
+        if last_shelf:
+            user_based_id = last_shelf.user_based_id + 1
+
+        self.user_based_id = user_based_id
 
     def format(self):
         total_books = Stored_Book.query.filter_by(shelf_id=self.id).count()
