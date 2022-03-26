@@ -12,11 +12,13 @@ This will install all of the required packages within the `requirements.txt` fil
 
 ### Authorization Setup
 This API uses [Auth0](https://auth0.auth0.com/) to handle Authorization   
-to setup and link your Auth0 account with the API fill your client credentials in [src/.env](src/.env)  
+to setup and link your Auth0 account with the API fill your client credentials in [src/.env.template](src/.env.template)  
 and the api audience in [constants.py](src/constants.py)
+>Remember to rename the file to .env
 
 ### Database Setup
-Add your psql database user,password and host to [src/.env](src/.env)
+Add your psql database user,password and host to [src/.env.template](src/.env.template)
+>Remember to rename the file to .env if you haven't already
 
 ### Running the server
 
@@ -37,7 +39,8 @@ To setup the tests you need to create two JWTs for two roles:
 2. **Librarian** with the following permissions:  
 `post:books` `patch:books` `post:authors` `patch:authors`
 
-and place them in [testing/.env](testing/.env)
+and place them in [testing/.env.template](testing/.env.template)
+>Remember to rename the file to .env
 
 then create the testing database and load its tables and data by navigating to the testing folder and running:
 ```bash
