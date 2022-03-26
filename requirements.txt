@@ -1,0 +1,8 @@
+flask
+sqlalchemy
+flask_sqlalchemy
+sqlalchemy_utils
+python-dotenv
+jose
+unittest
+requests
