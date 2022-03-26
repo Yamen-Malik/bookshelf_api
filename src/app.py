@@ -123,7 +123,7 @@ def create_app():
 
         return jsonify({
             "success": True
-        }), 204
+        }), 200
 
     @app.route("/books/<id>", methods=["DELETE"])
     @requires_auth("delete:books")
@@ -230,7 +230,7 @@ def create_app():
 
         return jsonify({
             "success": True
-        }), 204
+        }), 200
 
     @app.route("/authors/<id>", methods=["DELETE"])
     @requires_auth("delete:authors")
@@ -347,7 +347,7 @@ def create_app():
         shelf.update()
         return jsonify({
             "success": True
-        }), 204
+        }), 200
 
 
     @app.route("/shelves/<id>", methods=["DELETE"])
@@ -392,7 +392,7 @@ def create_app():
 
         return jsonify({
             "success": True
-        }), 204
+        }), 200
 
     @app.route("/shelves/<shelf_id>/<book_id>", methods=["DELETE"])
     @requires_auth()
@@ -400,7 +400,7 @@ def create_app():
         Stored_Book.get(get_user_id(), book_id).delete()
         return jsonify({
             "success": True
-        }), 204
+        }), 200
 
     # endregion
 
