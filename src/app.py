@@ -1,4 +1,5 @@
 from flask import Flask, request, abort, jsonify, redirect
+from flask_cors import CORS
 import datetime
 import re
 from auth import get_token_from_code, requires_auth, AuthError, get_user_id, get_login_url
@@ -8,7 +9,7 @@ from models import *
 def create_app():
     app = Flask(__name__)
     setup_db(app)
-
+    CORS(app)
     # region BOOKS
 
     @app.route("/books")
@@ -467,6 +468,6 @@ def create_app():
     return app
 
 
+app = create_app()
 if __name__ == "__main__":
-    app = create_app()
     app.run()

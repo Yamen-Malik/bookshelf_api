@@ -6,11 +6,13 @@ load_dotenv()
 ITEMS_PER_PAGE = 10
 
 # Database
-DB_USER = getenv("DB_USER")
-DB_PASSWORD = getenv("DB_PASSWORD")
-DB_HOST = getenv("DB_HOST")
-DB_NAME = "bookshelf_api"
-DB_PATH = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}"
+DB_PATH = getenv("DATABASE_URL")
+if not DB_PATH:
+    DB_USER = getenv("DB_USER")
+    DB_PASSWORD = getenv("DB_PASSWORD")
+    DB_HOST = getenv("DB_HOST")
+    DB_NAME = "bookshelf"
+    DB_PATH = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}"
 
 # Auth
 CLIENT_ID = getenv("BOOKSHELF_API_CLINET_ID")
