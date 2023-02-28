@@ -19,5 +19,5 @@ python-dateutil==2.8.1
 python-editor==1.0.4
 six==1.12.0
 requests==2.27.1
-Werkzeug==2.0.1
+Werkzeug==2.2.3
 Jinja2==3.0.1
